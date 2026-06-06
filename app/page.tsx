@@ -297,10 +297,11 @@ export default async function LandingPage() {
                     Get Started as Admin
                   </ButtonLink>
                 )}
-                <ButtonLink href={user ? "/dashboard" : "/calendar"} variant="ghost" className="text-white hover:bg-white/10 px-6 py-3 text-sm gap-2">
-                  <CalendarDays size={16} />
-                  {user ? "Go to Dashboard" : "Browse Public Calendar"}
-                </ButtonLink>
+                {user && (
+                  <ButtonLink href="/dashboard" variant="ghost" className="text-white hover:bg-white/10 px-6 py-3 text-sm gap-2">
+                    Go to Dashboard
+                  </ButtonLink>
+                )}
               </div>
             </div>
           </div>
@@ -316,7 +317,6 @@ export default async function LandingPage() {
             <span className="text-xs">— Appointment triage for high-demand leaders</span>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-400">
-            <a href="/calendar" className="hover:text-slate-600 transition">Public Calendar</a>
             {user ? (
               <a href="/dashboard" className="hover:text-slate-600 transition">Dashboard</a>
             ) : (
