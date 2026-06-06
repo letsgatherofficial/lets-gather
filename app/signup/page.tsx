@@ -16,6 +16,7 @@ function SignupForm() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("follower");
+  const [orgToken, setOrgToken] = useState("");
   const [state, action, pending] = useActionState(signupAction, initialState);
 
   useEffect(() => {
@@ -23,16 +24,29 @@ function SignupForm() {
     const phoneParam = searchParams.get("phone");
     const nameParam = searchParams.get("fullName");
     const roleParam = searchParams.get("role");
+    const orgParam = searchParams.get("org");
 
     if (emailParam) setEmail(emailParam);
     if (phoneParam) setPhone(phoneParam);
     if (nameParam) setFullName(nameParam);
+    if (orgParam) setOrgToken(orgParam);
     if (roleParam) setRole(roleParam);
+    else if (orgParam) setRole("delegate");
   }, [searchParams]);
+
+  const isInviteSignup = Boolean(orgToken);
+  const availableRoles = isInviteSignup
+    ? [
+        { id: "delegate", label: "Delegate / Agent", desc: "Triage & schedule tickets" },
+        { id: "leader", label: "Leader (Observer)", desc: "Observe daily agenda" }
+      ]
+    : [
+        { id: "follower", label: "Follower / Guest", desc: "Track appointment status" },
+        { id: "admin", label: "Administrator", desc: "Create organization & manage calendars" }
+      ];
 
   return (
     <section className="glass max-w-xl w-full rounded-2xl p-8 border border-slate-100/85 shadow-xl space-y-6 relative overflow-hidden">
-      {/* Decorative corner blur */}
       <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-brass/10 blur-xl pointer-events-none" />
 
       <ButtonLink href="/" variant="ghost" className="px-0 -ml-2 text-xs text-slate-500 hover:text-slate-700">
@@ -44,13 +58,19 @@ function SignupForm() {
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brass/10 text-brass">
           <UserPlus size={22} />
         </div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">Create Host or Guest Account</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
+          {isInviteSignup ? "Join Your Organization" : "Create Host or Guest Account"}
+        </h1>
         <p className="text-sm text-slate-500">
-          Enter your profile details below. If you previously requested an appointment as a guest, use the same contact info to sync your bookings.
+          {isInviteSignup
+            ? "You were invited to join an organization. Create your account to access your role-specific dashboard."
+            : "Enter your profile details below. Administrators create a new organization. Guests can track prior bookings with the same contact info."}
         </p>
       </div>
 
       <form action={action} className="space-y-4">
+        <input type="hidden" name="orgToken" value={orgToken} />
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="fullName">Full Name</Label>
@@ -58,13 +78,13 @@ function SignupForm() {
               <span className="absolute left-3.5 top-3.5 text-slate-400">
                 <User size={16} />
               </span>
-              <Input 
-                id="fullName" 
-                name="fullName" 
-                required 
+              <Input
+                id="fullName"
+                name="fullName"
+                required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Grace Njeri" 
+                placeholder="Grace Njeri"
                 className="pl-10"
               />
             </div>
@@ -76,10 +96,10 @@ function SignupForm() {
               <span className="absolute left-3.5 top-3.5 text-slate-400">
                 <Phone size={16} />
               </span>
-              <Input 
-                id="phone" 
-                name="phone" 
-                placeholder="+254..." 
+              <Input
+                id="phone"
+                name="phone"
+                placeholder="+254..."
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="pl-10"
@@ -94,14 +114,14 @@ function SignupForm() {
             <span className="absolute left-3.5 top-3.5 text-slate-400">
               <Mail size={16} />
             </span>
-            <Input 
-              id="email" 
-              name="email" 
-              type="email" 
-              required 
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com" 
+              placeholder="you@example.com"
               className="pl-10"
             />
           </div>
@@ -113,43 +133,37 @@ function SignupForm() {
             <span className="absolute left-3.5 top-3.5 text-slate-400">
               <Lock size={16} />
             </span>
-            <Input 
-              id="password" 
-              name="password" 
-              type="password" 
-              required 
-              placeholder="••••••••" 
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              placeholder="••••••••"
               className="pl-10"
             />
           </div>
         </div>
 
-        {/* Custom Role Selection for testing/onboarding */}
         <div className="space-y-2 border-t border-slate-100 pt-4">
           <Label>Account Purpose (User Role)</Label>
           <div className="grid grid-cols-2 gap-2">
-            {[
-              { id: "follower", label: "Follower / Guest", desc: "Track appointment status" },
-              { id: "delegate", label: "Delegate / Agent", desc: "Triage & schedule tickets" },
-              { id: "leader", label: "Leader (Observer)", desc: "Observe daily agenda" },
-              { id: "admin", label: "Administrator", desc: "System settings & calendars" }
-            ].map((r) => (
-              <label 
-                key={r.id} 
+            {availableRoles.map((r) => (
+              <label
+                key={r.id}
                 className={cn(
                   "flex flex-col p-3 rounded-xl border text-left cursor-pointer transition-all duration-200",
-                  role === r.id 
-                    ? "border-brass bg-brass/5 shadow-sm" 
+                  role === r.id
+                    ? "border-brass bg-brass/5 shadow-sm"
                     : "border-slate-200/60 bg-white/70 hover:border-slate-300"
                 )}
               >
-                <input 
-                  type="radio" 
-                  name="role" 
-                  value={r.id} 
+                <input
+                  type="radio"
+                  name="role"
+                  value={r.id}
                   checked={role === r.id}
                   onChange={() => setRole(r.id)}
-                  className="sr-only" 
+                  className="sr-only"
                 />
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   {role === r.id && <span className="h-1.5 w-1.5 rounded-full bg-brass shrink-0" />}

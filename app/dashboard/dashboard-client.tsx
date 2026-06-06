@@ -14,6 +14,7 @@ import {
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
 import { cn, formatDateTime } from "@/lib/utils";
+import { CalendarView } from "@/components/calendar-view";
 
 interface DashboardClientProps {
   profile: any;
@@ -23,6 +24,7 @@ interface DashboardClientProps {
   slots: any[];
   appointments: any[];
   followerAppointments: any[];
+  organization: { id: string; name: string; invite_token: string } | null;
 }
 
 export function DashboardClient({
@@ -32,7 +34,8 @@ export function DashboardClient({
   leaders,
   slots,
   appointments,
-  followerAppointments
+  followerAppointments,
+  organization
 }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -336,10 +339,11 @@ export function DashboardClient({
 
   // Render leader view
   if (profile.role === "leader") {
-    // observational daily agenda and community events
     return (
       <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-6">
         {headerNode}
+
+        <CalendarView slots={slots} showBookingLinks={false} />
 
         <div className="grid gap-6 md:grid-cols-3">
           {/* Daily Schedule Observer */}
@@ -436,6 +440,8 @@ export function DashboardClient({
   // Render admin view
   if (profile.role === "admin") {
     const hostUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const orgToken = organization?.invite_token ?? "";
+    const leaderSchedule = appointments.filter((a) => a.status === "scheduled_leader");
 
     return (
       <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-6">
@@ -575,7 +581,7 @@ export function DashboardClient({
                       <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         <span>Leader Invite Link</span>
                         <button 
-                          onClick={() => copyToClipboard(`${hostUrl}/signup?role=leader`, "leader")}
+                          onClick={() => copyToClipboard(`${hostUrl}/signup?role=leader&org=${orgToken}`, "leader")}
                           className="text-brass hover:underline flex items-center gap-1"
                         >
                           {copyStatus === "leader" ? <Check size={11} /> : <Copy size={11} />}
@@ -583,7 +589,7 @@ export function DashboardClient({
                         </button>
                       </div>
                       <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-[10px] font-medium text-slate-500 truncate select-all">
-                        {hostUrl}/signup?role=leader
+                        {hostUrl}/signup?role=leader&org={orgToken}
                       </div>
                     </div>
 
@@ -592,7 +598,7 @@ export function DashboardClient({
                       <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         <span>Delegate Invite Link</span>
                         <button 
-                          onClick={() => copyToClipboard(`${hostUrl}/signup?role=delegate`, "delegate")}
+                          onClick={() => copyToClipboard(`${hostUrl}/signup?role=delegate&org=${orgToken}`, "delegate")}
                           className="text-brass hover:underline flex items-center gap-1"
                         >
                           {copyStatus === "delegate" ? <Check size={11} /> : <Copy size={11} />}
@@ -600,7 +606,7 @@ export function DashboardClient({
                         </button>
                       </div>
                       <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-[10px] font-medium text-slate-500 truncate select-all">
-                        {hostUrl}/signup?role=delegate
+                        {hostUrl}/signup?role=delegate&org={orgToken}
                       </div>
                     </div>
                   </div>
@@ -610,9 +616,27 @@ export function DashboardClient({
                 <div className="glass rounded-2xl p-5 border border-slate-100/60 shadow-sm space-y-4">
                   <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <UserCheck size={16} className="text-jade" />
+                    Enrolled Leaders ({leaders.length})
+                  </h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {leaders.map((l) => (
+                      <div key={l.id} className="p-2.5 rounded-xl border border-slate-100/50 bg-slate-50/50 text-xs">
+                        <p className="font-bold text-slate-800 truncate">{l.full_name}</p>
+                        <p className="text-slate-400 mt-0.5 truncate text-[10px]">{l.email}</p>
+                      </div>
+                    ))}
+                    {!leaders.length && (
+                      <p className="text-xs text-slate-400 text-center py-4">No leaders enrolled. Share the invite link above.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="glass rounded-2xl p-5 border border-slate-100/60 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <UserCheck size={16} className="text-brass" />
                     Enrolled Delegates ({delegates.length})
                   </h3>
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                     {delegates.map((d) => (
                       <div key={d.id} className="p-2.5 rounded-xl border border-slate-100/50 bg-slate-50/50 text-xs">
                         <p className="font-bold text-slate-800 truncate">{d.full_name}</p>
@@ -625,11 +649,48 @@ export function DashboardClient({
                   </div>
                 </div>
               </div>
+
+              {/* Leader Schedule Observer */}
+              <div className="md:col-span-3 space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <Calendar size={18} className="text-brass" />
+                  <h2 className="text-base font-bold text-slate-800">Leader Schedule ({leaderSchedule.length})</h2>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {leaderSchedule.length ? (
+                    leaderSchedule.map((ticket) => (
+                      <article key={ticket.id} className="glass rounded-2xl p-5 border border-slate-100/60 shadow-sm space-y-3">
+                        <div>
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                            {ticket.tracking_reference}
+                          </span>
+                          <h3 className="text-sm font-bold text-slate-800 mt-1">{ticket.guest_full_name}</h3>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{ticket.category}</p>
+                        </div>
+                        {ticket.curated_slots && (
+                          <div className="bg-brass/5 border border-brass/10 rounded-xl p-3 text-xs">
+                            <p className="font-bold text-brass">{ticket.curated_slots.title}</p>
+                            <p className="text-slate-500 mt-0.5">{formatDateTime(ticket.curated_slots.start_time)}</p>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-slate-500 line-clamp-2">{ticket.statement_of_business}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="glass rounded-2xl p-6 text-sm text-slate-400 text-center border border-slate-100/60 col-span-full">
+                      No appointments scheduled to the leader yet.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
           {/* PANEL 2: CALENDAR CURATION */}
           {activeTab === "calendar" && (
+            <div className="space-y-8">
+            <CalendarView slots={slots} showBookingLinks={true} />
+
             <div className="grid gap-6 md:grid-cols-3">
               {/* Slot creation form */}
               <div className="glass rounded-2xl p-6 border border-slate-100/80 shadow-sm space-y-5">
@@ -744,6 +805,7 @@ export function DashboardClient({
                   )}
                 </div>
               </div>
+            </div>
             </div>
           )}
 

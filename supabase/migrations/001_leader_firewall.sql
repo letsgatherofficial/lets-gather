@@ -352,22 +352,3 @@ CREATE INDEX IF NOT EXISTS idx_appointments_phone ON appointments(guest_phone);
 CREATE INDEX IF NOT EXISTS idx_curated_slots_start ON curated_slots(start_time);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 
-INSERT INTO curated_slots (title, visibility, start_time, end_time, max_capacity, current_occupancy, is_active)
-SELECT 'Community Healing Gathering', 'public_event', now() + interval '4 days', now() + interval '4 days 2 hours', 600, 124, TRUE
-WHERE NOT EXISTS (SELECT 1 FROM curated_slots WHERE title = 'Community Healing Gathering');
-
-INSERT INTO curated_slots (title, visibility, start_time, end_time, max_capacity, current_occupancy, is_active)
-SELECT 'Legal Aid Clinic', 'public_event', now() + interval '9 days', now() + interval '9 days 3 hours', 120, 43, TRUE
-WHERE NOT EXISTS (SELECT 1 FROM curated_slots WHERE title = 'Legal Aid Clinic');
-
-INSERT INTO curated_slots (title, visibility, start_time, end_time, max_capacity, current_occupancy, is_active)
-SELECT 'Counseling Outreach Evening', 'public_event', now() + interval '15 days', now() + interval '15 days 2 hours', 250, 91, TRUE
-WHERE NOT EXISTS (SELECT 1 FROM curated_slots WHERE title = 'Counseling Outreach Evening');
-
-INSERT INTO curated_slots (title, visibility, start_time, end_time, max_capacity, current_occupancy, is_active)
-SELECT 'Morning appointment block', 'appointment', date_trunc('day', now()) + interval '1 day 9 hours', date_trunc('day', now()) + interval '1 day 12 hours', 8, 0, TRUE
-WHERE NOT EXISTS (SELECT 1 FROM curated_slots WHERE title = 'Morning appointment block');
-
-INSERT INTO curated_slots (title, visibility, start_time, end_time, max_capacity, current_occupancy, is_active)
-SELECT 'Afternoon appointment block', 'appointment', date_trunc('day', now()) + interval '1 day 14 hours', date_trunc('day', now()) + interval '1 day 17 hours', 8, 0, TRUE
-WHERE NOT EXISTS (SELECT 1 FROM curated_slots WHERE title = 'Afternoon appointment block');

@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { DashboardClient } from "./dashboard-client";
 
-// Get current user and role
 async function getDashboardData() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -22,22 +21,23 @@ async function getDashboardData() {
     return { user, profile: null };
   }
 
-  // Fetch relevant data based on role
+  const orgId = profile.organization_id;
   let settings = null;
   let delegates = [];
   let leaders = [];
   let slots = [];
   let appointments = [];
   let followerAppointments = [];
+  let organization = null;
 
-  if (profile.role === "admin") {
-    // Admin needs access to everything
-    const [settingsRes, delegatesRes, leadersRes, slotsRes, appointmentsRes] = await Promise.all([
-      adminClient.from("system_settings").select("*").eq("id", 1).single(),
-      adminClient.from("profiles").select("*").eq("role", "delegate").order("created_at"),
-      adminClient.from("profiles").select("*").eq("role", "leader").order("created_at"),
-      adminClient.from("curated_slots").select("*").eq("is_active", true).order("start_time", { ascending: true }),
-      adminClient.from("appointments").select("*, curated_slots(title, start_time)").order("created_at", { ascending: false })
+  if (profile.role === "admin" && orgId) {
+    const [settingsRes, delegatesRes, leadersRes, slotsRes, appointmentsRes, orgRes] = await Promise.all([
+      adminClient.from("system_settings").select("*").eq("organization_id", orgId).single(),
+      adminClient.from("profiles").select("*").eq("role", "delegate").eq("organization_id", orgId).order("created_at"),
+      adminClient.from("profiles").select("*").eq("role", "leader").eq("organization_id", orgId).order("created_at"),
+      adminClient.from("curated_slots").select("*").eq("organization_id", orgId).eq("is_active", true).order("start_time", { ascending: true }),
+      adminClient.from("appointments").select("*, curated_slots(title, start_time)").eq("organization_id", orgId).order("created_at", { ascending: false }),
+      adminClient.from("organizations").select("*").eq("id", orgId).single()
     ]);
 
     settings = settingsRes.data;
@@ -45,32 +45,34 @@ async function getDashboardData() {
     leaders = leadersRes.data ?? [];
     slots = slotsRes.data ?? [];
     appointments = appointmentsRes.data ?? [];
-  } else if (profile.role === "leader") {
-    // Leader needs observational schedule agenda and settings
+    organization = orgRes.data;
+  } else if (profile.role === "leader" && orgId) {
     const [slotsRes, appointmentsRes, settingsRes] = await Promise.all([
-      adminClient.from("curated_slots").select("*").eq("is_active", true).order("start_time", { ascending: true }),
+      adminClient.from("curated_slots").select("*").eq("organization_id", orgId).eq("is_active", true).order("start_time", { ascending: true }),
       adminClient
         .from("appointments")
         .select("*, curated_slots(title, start_time)")
+        .eq("organization_id", orgId)
         .in("status", ["scheduled_leader", "scheduled_delegate"])
         .order("created_at", { ascending: false }),
-      adminClient.from("system_settings").select("*").eq("id", 1).single()
+      adminClient.from("system_settings").select("*").eq("organization_id", orgId).single()
     ]);
 
     slots = slotsRes.data ?? [];
     appointments = appointmentsRes.data ?? [];
     settings = settingsRes.data;
-  } else if (profile.role === "delegate") {
-    // Delegate needs assigned tickets and active slots to schedule
+  } else if (profile.role === "delegate" && orgId) {
     const [appointmentsRes, slotsRes] = await Promise.all([
       adminClient
         .from("appointments")
         .select("*, curated_slots(title, start_time)")
+        .eq("organization_id", orgId)
         .eq("assigned_agent_id", user.id)
         .order("created_at", { ascending: false }),
       adminClient
         .from("curated_slots")
         .select("*")
+        .eq("organization_id", orgId)
         .eq("is_active", true)
         .eq("visibility", "appointment")
         .order("start_time", { ascending: true })
@@ -79,7 +81,6 @@ async function getDashboardData() {
     appointments = appointmentsRes.data ?? [];
     slots = slotsRes.data ?? [];
   } else if (profile.role === "follower") {
-    // Follower needs their own bookings and recommended events
     const [appointmentsRes, eventsRes] = await Promise.all([
       adminClient
         .from("appointments")
@@ -96,7 +97,20 @@ async function getDashboardData() {
     ]);
 
     followerAppointments = appointmentsRes.data ?? [];
-    slots = eventsRes.data ?? [];
+    const orgIds = [...new Set(followerAppointments.map((a: { organization_id?: string }) => a.organization_id).filter(Boolean))];
+    if (orgIds.length) {
+      const { data: orgEvents } = await adminClient
+        .from("curated_slots")
+        .select("*")
+        .eq("is_active", true)
+        .eq("visibility", "public_event")
+        .in("organization_id", orgIds)
+        .gte("start_time", new Date().toISOString())
+        .order("start_time", { ascending: true });
+      slots = orgEvents ?? [];
+    } else {
+      slots = eventsRes.data ?? [];
+    }
   }
 
   return {
@@ -107,7 +121,8 @@ async function getDashboardData() {
     leaders,
     slots,
     appointments,
-    followerAppointments
+    followerAppointments,
+    organization
   };
 }
 
@@ -119,12 +134,11 @@ export default async function DashboardPage() {
   }
 
   if (!data.profile) {
-    // Profile is missing, redirect to signup
     redirect("/signup");
   }
 
   return (
-    <DashboardClient 
+    <DashboardClient
       profile={data.profile}
       settings={data.settings ?? null}
       delegates={data.delegates ?? []}
@@ -132,6 +146,7 @@ export default async function DashboardPage() {
       slots={data.slots ?? []}
       appointments={data.appointments ?? []}
       followerAppointments={data.followerAppointments ?? []}
+      organization={data.organization ?? null}
     />
   );
 }

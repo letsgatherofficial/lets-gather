@@ -177,10 +177,12 @@ export default async function LandingPage() {
               <CalendarDays size={16} />
               View Public Calendar &amp; Book
             </ButtonLink>
-            <ButtonLink href="/signup" variant="secondary" className="gap-2 px-6 py-3 text-sm">
-              Set Up Your Platform
-              <ArrowRight size={16} />
-            </ButtonLink>
+            {!user && (
+              <ButtonLink href="/signup" variant="secondary" className="gap-2 px-6 py-3 text-sm">
+                Set Up Your Platform
+                <ArrowRight size={16} />
+              </ButtonLink>
+            )}
           </div>
         </div>
       </section>
@@ -304,13 +306,15 @@ export default async function LandingPage() {
                 Set up the system in minutes. Invite delegates, curate your calendar grid, and share the booking link with your following.
               </p>
               <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-                <ButtonLink href="/signup?role=admin" className="bg-white text-slate-800 hover:bg-slate-100 px-6 py-3 text-sm gap-2 shadow-xl">
-                  <CheckCircle2 size={16} />
-                  Get Started as Admin
-                </ButtonLink>
-                <ButtonLink href="/calendar" variant="ghost" className="text-white hover:bg-white/10 px-6 py-3 text-sm gap-2">
+                {!user && (
+                  <ButtonLink href="/signup?role=admin" className="bg-white text-slate-800 hover:bg-slate-100 px-6 py-3 text-sm gap-2 shadow-xl">
+                    <CheckCircle2 size={16} />
+                    Get Started as Admin
+                  </ButtonLink>
+                )}
+                <ButtonLink href={user ? "/dashboard" : "/calendar"} variant="ghost" className="text-white hover:bg-white/10 px-6 py-3 text-sm gap-2">
                   <CalendarDays size={16} />
-                  Browse Public Calendar
+                  {user ? "Go to Dashboard" : "Browse Public Calendar"}
                 </ButtonLink>
               </div>
             </div>
@@ -328,8 +332,14 @@ export default async function LandingPage() {
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-400">
             <a href="/calendar" className="hover:text-slate-600 transition">Public Calendar</a>
-            <a href="/login" className="hover:text-slate-600 transition">Login</a>
-            <a href="/signup" className="hover:text-slate-600 transition">Sign Up</a>
+            {user ? (
+              <a href="/dashboard" className="hover:text-slate-600 transition">Dashboard</a>
+            ) : (
+              <>
+                <a href="/login" className="hover:text-slate-600 transition">Login</a>
+                <a href="/signup" className="hover:text-slate-600 transition">Sign Up</a>
+              </>
+            )}
           </div>
         </div>
       </footer>

@@ -29,6 +29,16 @@ export async function getCurrentUserProfile() {
   return data;
 }
 
+async function getOrganizationByInviteToken(token: string) {
+  const adminClient = createSupabaseAdminClient();
+  const { data } = await adminClient
+    .from("organizations")
+    .select("*")
+    .eq("invite_token", token)
+    .single();
+  return data;
+}
+
 export async function loginAction(state: any, formData: FormData) {
   const email = textValue(formData, "email");
   const password = textValue(formData, "password");
@@ -54,16 +64,58 @@ export async function signupAction(state: any, formData: FormData) {
   const email = textValue(formData, "email");
   const phone = textValue(formData, "phone");
   const password = textValue(formData, "password");
-  const role = textValue(formData, "role"); // 'follower' | 'delegate' | 'leader' | 'admin'
+  const role = textValue(formData, "role");
+  const orgToken = textValue(formData, "orgToken");
 
   if (!fullName || !email || !password || !role) {
     return { ok: false, message: "Please fill out all required fields." };
   }
 
+  if ((role === "leader" || role === "delegate") && !orgToken) {
+    return { ok: false, message: "Leader and delegate accounts require a valid organization invite link." };
+  }
+
+  if (role === "admin" && orgToken) {
+    return { ok: false, message: "Administrators create a new organization — do not use an invite link." };
+  }
+
   const supabase = await createSupabaseServerClient();
   const adminClient = createSupabaseAdminClient();
 
-  // Create Auth User
+  let organizationId: string | null = null;
+
+  if (role === "admin") {
+    const { data: org, error: orgError } = await adminClient
+      .from("organizations")
+      .insert({ name: `${fullName}'s Organization` })
+      .select("*")
+      .single();
+
+    if (orgError || !org) {
+      return { ok: false, message: `Failed to create organization: ${orgError?.message}` };
+    }
+
+    organizationId = org.id;
+
+    await adminClient.from("system_settings").insert({
+      organization_id: org.id,
+      delegate_tier_active: false,
+      sla_hours_threshold: 24,
+      min_character_count_business: 150,
+      min_character_count_outcome: 100
+    });
+
+    await adminClient.from("organization_delegate_state").insert({
+      organization_id: org.id
+    });
+  } else if (role === "leader" || role === "delegate") {
+    const org = await getOrganizationByInviteToken(orgToken);
+    if (!org) {
+      return { ok: false, message: "Invalid organization invite link. Ask your administrator for a new link." };
+    }
+    organizationId = org.id;
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -85,23 +137,27 @@ export async function signupAction(state: any, formData: FormData) {
     return { ok: false, message: "Signup failed. No user returned." };
   }
 
-  // Create Profile using admin client to bypass RLS policies
   const { error: profileError } = await adminClient.from("profiles").insert({
     id: user.id,
     full_name: fullName,
     email: email,
     phone: phone || null,
-    role: role
+    role: role,
+    organization_id: organizationId
   });
 
   if (profileError) {
-    // Attempt cleanup
     await adminClient.auth.admin.deleteUser(user.id);
     return { ok: false, message: `Failed to create user profile: ${profileError.message}` };
   }
 
-  // LINK SHADOW APPOINTMENTS!
-  // Find appointments with matching email or phone and assign registered_follower_id to user.id
+  if (role === "admin" && organizationId) {
+    await adminClient
+      .from("organizations")
+      .update({ created_by: user.id })
+      .eq("id", organizationId);
+  }
+
   let query = adminClient.from("appointments").update({ registered_follower_id: user.id });
   if (phone) {
     query = query.or(`guest_email.eq.${email},guest_phone.eq.${phone}`);
@@ -142,7 +198,22 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
     return { ok: false, message: "Please provide contact details and a supported request category." };
   }
 
-  const { data: settings } = await supabase.from("system_settings").select("*").eq("id", 1).single();
+  let organizationId: string | null = null;
+  if (slotId) {
+    const { data: slot } = await supabase.from("curated_slots").select("organization_id, current_occupancy, max_capacity").eq("id", slotId).single();
+    if (slot) {
+      if (slot.current_occupancy >= slot.max_capacity) {
+        return { ok: false, message: "The selected appointment slot is already full." };
+      }
+      organizationId = slot.organization_id;
+    }
+  }
+
+  const settingsQuery = organizationId
+    ? supabase.from("system_settings").select("*").eq("organization_id", organizationId).single()
+    : supabase.from("system_settings").select("*").is("organization_id", null).limit(1).maybeSingle();
+
+  const { data: settings } = await settingsQuery;
   const minBusiness = settings?.min_character_count_business ?? 150;
   const minOutcome = settings?.min_character_count_outcome ?? 100;
 
@@ -154,25 +225,19 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
     return { ok: false, message: "Select at least one preferred time window." };
   }
 
-  // If a slotId is specified, check if it's already full
-  if (slotId) {
-    const { data: slot } = await supabase.from("curated_slots").select("*").eq("id", slotId).single();
-    if (slot && slot.current_occupancy >= slot.max_capacity) {
-      return { ok: false, message: "The selected appointment slot is already full." };
-    }
-  }
-
   const { data: reference, error: refError } = await supabase.rpc("generate_tracking_reference");
   if (refError || !reference) {
     return { ok: false, message: "Could not generate a tracking reference. Please try again." };
   }
 
-  const { data: agentId } = await supabase.rpc("assign_next_agent", { p_is_time_sensitive: isTimeSensitive });
+  const { data: agentId } = await supabase.rpc("assign_next_agent", {
+    p_is_time_sensitive: isTimeSensitive,
+    p_organization_id: organizationId
+  });
   const status = agentId ? "assigned_to_delegate" : "pending_review";
   const slaHours = settings?.sla_hours_threshold ?? 24;
   const slaDate = new Date(Date.now() + slaHours * 60 * 60 * 1000).toISOString();
 
-  // Try to find if user is authenticated to associate
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
 
@@ -184,6 +249,7 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
     registered_follower_id: user?.id || null,
     slot_id: slotId,
     assigned_agent_id: agentId,
+    organization_id: organizationId,
     category,
     statement_of_business: statement,
     desired_outcome: outcome,
@@ -215,22 +281,45 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
 }
 
 export async function toggleDelegateTier(active: boolean) {
+  const profile = await getCurrentUserProfile();
+  if (!profile || profile.role !== "admin" || !profile.organization_id) {
+    return { ok: false, message: "Unauthorized." };
+  }
+
   const supabase = createSupabaseAdminClient();
-  const { count } = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "delegate");
+  const { count } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "delegate")
+    .eq("organization_id", profile.organization_id);
 
   if (active && !count) {
     return { ok: false, message: "Assign at least one delegate before activating the delegate tier." };
   }
 
-  const { error } = await supabase.from("system_settings").update({ delegate_tier_active: active, updated_at: new Date().toISOString() }).eq("id", 1);
+  const { error } = await supabase
+    .from("system_settings")
+    .update({ delegate_tier_active: active, updated_at: new Date().toISOString() })
+    .eq("organization_id", profile.organization_id);
+
   revalidatePath("/admin");
   revalidatePath("/dashboard");
   return { ok: !error, message: error?.message };
 }
 
 export async function updateAppointmentStatus(id: string, status: "scheduled_delegate" | "scheduled_leader" | "sla_expired" | "resolved") {
+  const profile = await getCurrentUserProfile();
+  if (!profile?.organization_id) {
+    return { ok: false, message: "Unauthorized." };
+  }
+
   const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
+  const { error } = await supabase
+    .from("appointments")
+    .update({ status })
+    .eq("id", id)
+    .eq("organization_id", profile.organization_id);
+
   revalidatePath("/dashboard");
   revalidatePath("/admin");
   return { ok: !error, message: error?.message };
@@ -248,7 +337,7 @@ export async function createSlotAction(state: any, formData: FormData) {
   }
 
   const profile = await getCurrentUserProfile();
-  if (!profile || (profile.role !== "admin" && profile.role !== "leader")) {
+  if (!profile || (profile.role !== "admin" && profile.role !== "leader") || !profile.organization_id) {
     return { ok: false, message: "Unauthorized: Only admins and leaders can curate slots." };
   }
 
@@ -260,7 +349,8 @@ export async function createSlotAction(state: any, formData: FormData) {
     end_time: new Date(endTime).toISOString(),
     max_capacity: maxCapacity,
     current_occupancy: 0,
-    is_active: true
+    is_active: true,
+    organization_id: profile.organization_id
   });
 
   if (error) {
@@ -276,12 +366,16 @@ export async function createSlotAction(state: any, formData: FormData) {
 
 export async function deleteSlotAction(id: string) {
   const profile = await getCurrentUserProfile();
-  if (!profile || (profile.role !== "admin" && profile.role !== "leader")) {
+  if (!profile || (profile.role !== "admin" && profile.role !== "leader") || !profile.organization_id) {
     return { ok: false, message: "Unauthorized." };
   }
 
   const adminClient = createSupabaseAdminClient();
-  const { error } = await adminClient.from("curated_slots").update({ is_active: false }).eq("id", id);
+  const { error } = await adminClient
+    .from("curated_slots")
+    .update({ is_active: false })
+    .eq("id", id)
+    .eq("organization_id", profile.organization_id);
 
   if (error) {
     return { ok: false, message: error.message };
@@ -296,7 +390,7 @@ export async function deleteSlotAction(id: string) {
 
 export async function updateSettingsAction(state: any, formData: FormData) {
   const profile = await getCurrentUserProfile();
-  if (!profile || profile.role !== "admin") {
+  if (!profile || profile.role !== "admin" || !profile.organization_id) {
     return { ok: false, message: "Unauthorized: Only administrators can modify global rules." };
   }
 
@@ -317,7 +411,7 @@ export async function updateSettingsAction(state: any, formData: FormData) {
       sla_hours_threshold: slaHours,
       updated_at: new Date().toISOString()
     })
-    .eq("id", 1);
+    .eq("organization_id", profile.organization_id);
 
   if (error) {
     return { ok: false, message: error.message };
@@ -331,13 +425,19 @@ export async function updateSettingsAction(state: any, formData: FormData) {
 
 export async function scheduleAppointmentAction(appointmentId: string, slotId: string, status: "scheduled_delegate" | "scheduled_leader") {
   const profile = await getCurrentUserProfile();
-  if (!profile || (profile.role !== "admin" && profile.role !== "delegate")) {
+  if (!profile || (profile.role !== "admin" && profile.role !== "delegate") || !profile.organization_id) {
     return { ok: false, message: "Unauthorized." };
   }
 
   const adminClient = createSupabaseAdminClient();
 
-  const { data: slot } = await adminClient.from("curated_slots").select("*").eq("id", slotId).single();
+  const { data: slot } = await adminClient
+    .from("curated_slots")
+    .select("*")
+    .eq("id", slotId)
+    .eq("organization_id", profile.organization_id)
+    .single();
+
   if (!slot) {
     return { ok: false, message: "Selected calendar slot does not exist." };
   }
@@ -352,7 +452,8 @@ export async function scheduleAppointmentAction(appointmentId: string, slotId: s
       status: status,
       assigned_agent_id: profile.role === "delegate" ? profile.id : undefined
     })
-    .eq("id", appointmentId);
+    .eq("id", appointmentId)
+    .eq("organization_id", profile.organization_id);
 
   if (error) {
     return { ok: false, message: error.message };

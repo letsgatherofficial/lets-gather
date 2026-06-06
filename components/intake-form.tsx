@@ -26,24 +26,33 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
   const [fullNameVal, setFullNameVal] = useState("");
   const [phoneVal, setPhoneVal] = useState("");
   const [emailVal, setEmailVal] = useState("");
+  const [categoryVal, setCategoryVal] = useState("");
   const [business, setBusiness] = useState("");
   const [outcome, setOutcome] = useState("");
-  
+  const [preferredWindows, setPreferredWindows] = useState<string[]>([]);
+  const [urgency, setUrgency] = useState("standard");
+
   const [state, action, pending] = useActionState(submitAppointment, initialState);
-  
+
   const businessReady = business.trim().length >= 150;
   const outcomeReady = outcome.trim().length >= 100;
   const canContinue = useMemo(() => {
     if (step === 0) return fullNameVal.trim() !== "" && phoneVal.trim() !== "";
-    if (step === 1) return businessReady && outcomeReady;
-    return true;
-  }, [step, fullNameVal, phoneVal, businessReady, outcomeReady]);
+    if (step === 1) return categoryVal !== "" && businessReady && outcomeReady;
+    return preferredWindows.length > 0;
+  }, [step, fullNameVal, phoneVal, categoryVal, businessReady, outcomeReady, preferredWindows]);
+
+  const toggleWindow = (window: string) => {
+    setPreferredWindows((prev) =>
+      prev.includes(window) ? prev.filter((w) => w !== window) : [...prev, window]
+    );
+  };
 
   if (state.ok && state.reference) {
     return (
-      <motion.div 
-        initial={{ opacity: 0, y: 18 }} 
-        animate={{ opacity: 1, y: 0 }} 
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
         className="glass rounded-2xl p-8 border border-slate-100/80 shadow-xl"
       >
         <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-jade/10 text-jade">
@@ -59,9 +68,9 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
           <p className="text-sm text-slate-600 mt-1 mb-4">
             Want to see your live appointment progress or view member-only community updates? Create a secure account.
           </p>
-          <ButtonLink 
-            href={`/signup?email=${encodeURIComponent(emailVal)}&phone=${encodeURIComponent(phoneVal)}&fullName=${encodeURIComponent(fullNameVal)}`} 
-            className="w-full text-center" 
+          <ButtonLink
+            href={`/signup?email=${encodeURIComponent(emailVal)}&phone=${encodeURIComponent(phoneVal)}&fullName=${encodeURIComponent(fullNameVal)}`}
+            className="w-full text-center"
             variant="primary"
           >
             Create secure tracking account
@@ -74,8 +83,18 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
 
   return (
     <form action={action} className="glass rounded-2xl p-6 sm:p-8 border border-slate-100/80 shadow-xl space-y-6">
-      {/* Hidden slot ID */}
       <input type="hidden" name="slotId" value={slotId || ""} />
+      {/* Persist all fields across steps so submit includes values from unmounted steps */}
+      <input type="hidden" name="fullName" value={fullNameVal} />
+      <input type="hidden" name="phone" value={phoneVal} />
+      <input type="hidden" name="email" value={emailVal} />
+      <input type="hidden" name="category" value={categoryVal} />
+      <input type="hidden" name="statement" value={business} />
+      <input type="hidden" name="outcome" value={outcome} />
+      {preferredWindows.map((w) => (
+        <input key={w} type="hidden" name="preferredWindows" value={w} />
+      ))}
+      <input type="hidden" name="urgency" value={urgency} />
 
       {slotDetails && (
         <div className="flex items-start gap-3.5 bg-brass/5 rounded-xl p-4 border border-brass/10 mb-2">
@@ -98,15 +117,14 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
             type="button"
             key={item}
             onClick={() => {
-              // Only allow clicking steps if validation allows it
               if (index === 0) setStep(0);
               if (index === 1 && fullNameVal && phoneVal) setStep(1);
-              if (index === 2 && fullNameVal && phoneVal && businessReady && outcomeReady) setStep(2);
+              if (index === 2 && fullNameVal && phoneVal && categoryVal && businessReady && outcomeReady) setStep(2);
             }}
             className={cn(
               "py-2 px-1 flex-1 text-center border-b-2 text-xs font-bold transition-all duration-200",
-              index === step 
-                ? "border-brass text-brass" 
+              index === step
+                ? "border-brass text-brass"
                 : "border-transparent text-slate-400 hover:text-slate-600"
             )}
           >
@@ -117,32 +135,30 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
 
       <AnimatePresence mode="wait">
         {step === 0 && (
-          <motion.section 
-            key="contact" 
-            initial={{ opacity: 0, x: 10 }} 
-            animate={{ opacity: 1, x: 0 }} 
-            exit={{ opacity: 0, x: -10 }} 
+          <motion.section
+            key="contact"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
             className="space-y-4"
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full name</Label>
-                <Input 
-                  id="fullName" 
-                  name="fullName" 
-                  required 
-                  placeholder="Grace Njeri" 
+                <Input
+                  id="fullName"
+                  required
+                  placeholder="Grace Njeri"
                   value={fullNameVal}
                   onChange={(e) => setFullNameVal(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone / WhatsApp</Label>
-                <Input 
-                  id="phone" 
-                  name="phone" 
-                  required 
-                  placeholder="+254..." 
+                <Input
+                  id="phone"
+                  required
+                  placeholder="+254..."
                   value={phoneVal}
                   onChange={(e) => setPhoneVal(e.target.value)}
                 />
@@ -150,11 +166,10 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                name="email" 
-                type="email" 
-                placeholder="you@example.com (Optional)" 
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com (Optional)"
                 value={emailVal}
                 onChange={(e) => setEmailVal(e.target.value)}
               />
@@ -163,22 +178,30 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
         )}
 
         {step === 1 && (
-          <motion.section 
-            key="filters" 
-            initial={{ opacity: 0, x: 10 }} 
-            animate={{ opacity: 1, x: 0 }} 
-            exit={{ opacity: 0, x: -10 }} 
+          <motion.section
+            key="filters"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
             className="space-y-5"
           >
             <div className="space-y-2.5">
               <Label>Category</Label>
               <div className="grid grid-cols-2 gap-2.5">
                 {categories.map((category) => (
-                  <label 
-                    key={category} 
-                    className="flex items-center gap-2 rounded-xl bg-white border border-slate-200/60 p-3.5 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 focus-within:ring-2 focus-within:ring-brass/20 transition-all"
+                  <label
+                    key={category}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl bg-white border p-3.5 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 focus-within:ring-2 focus-within:ring-brass/20 transition-all",
+                      categoryVal === category ? "border-brass bg-brass/5" : "border-slate-200/60"
+                    )}
                   >
-                    <input className="text-brass focus:ring-brass" type="radio" name="category" value={category} required />
+                    <input
+                      className="text-brass focus:ring-brass"
+                      type="radio"
+                      checked={categoryVal === category}
+                      onChange={() => setCategoryVal(category)}
+                    />
                     {category}
                   </label>
                 ))}
@@ -191,14 +214,13 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
                   {business.trim().length} / 150 min
                 </span>
               </div>
-              <Textarea 
-                id="statement" 
-                name="statement" 
-                required 
+              <Textarea
+                id="statement"
+                required
                 placeholder="Explain the background and details of your request. Provide sufficient detail..."
-                minLength={150} 
-                value={business} 
-                onChange={(event) => setBusiness(event.target.value)} 
+                minLength={150}
+                value={business}
+                onChange={(event) => setBusiness(event.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -208,36 +230,43 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
                   {outcome.trim().length} / 100 min
                 </span>
               </div>
-              <Textarea 
-                id="outcome" 
-                name="outcome" 
-                required 
+              <Textarea
+                id="outcome"
+                required
                 placeholder="What is the exact outcome or response you need from this appointment..."
-                minLength={100} 
-                value={outcome} 
-                onChange={(event) => setOutcome(event.target.value)} 
+                minLength={100}
+                value={outcome}
+                onChange={(event) => setOutcome(event.target.value)}
               />
             </div>
           </motion.section>
         )}
 
         {step === 2 && (
-          <motion.section 
-            key="timeline" 
-            initial={{ opacity: 0, x: 10 }} 
-            animate={{ opacity: 1, x: 0 }} 
-            exit={{ opacity: 0, x: -10 }} 
+          <motion.section
+            key="timeline"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
             className="space-y-5"
           >
             <div className="space-y-2">
               <Label>Preferred windows</Label>
               <div className="grid gap-2 sm:grid-cols-3">
                 {windows.map((window) => (
-                  <label 
-                    key={window} 
-                    className="flex items-center gap-2 rounded-xl bg-white border border-slate-200/60 p-3.5 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all"
+                  <label
+                    key={window}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl bg-white border p-3.5 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all",
+                      preferredWindows.includes(window) ? "border-brass bg-brass/5" : "border-slate-200/60"
+                    )}
                   >
-                    <input className="text-brass focus:ring-brass rounded" type="checkbox" name="preferredWindows" value={window} />
+                    <input
+                      className="text-brass focus:ring-brass rounded"
+                      type="checkbox"
+                      checked={preferredWindows.includes(window)}
+                      onChange={() => toggleWindow(window)}
+                    />
                     {window}
                   </label>
                 ))}
@@ -246,12 +275,28 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
             <div className="space-y-2">
               <Label>Urgency Level</Label>
               <div className="grid gap-2.5 sm:grid-cols-2">
-                <label className="flex items-center gap-2 rounded-xl bg-white border border-slate-200/60 p-4 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all">
-                  <input className="text-brass focus:ring-brass" type="radio" name="urgency" value="standard" defaultChecked />
+                <label className={cn(
+                  "flex items-center gap-2 rounded-xl bg-white border p-4 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all",
+                  urgency === "standard" ? "border-brass bg-brass/5" : "border-slate-200/60"
+                )}>
+                  <input
+                    className="text-brass focus:ring-brass"
+                    type="radio"
+                    checked={urgency === "standard"}
+                    onChange={() => setUrgency("standard")}
+                  />
                   Standard Triage
                 </label>
-                <label className="flex items-center gap-2 rounded-xl bg-white border border-slate-200/60 p-4 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all">
-                  <input className="text-brass focus:ring-brass" type="radio" name="urgency" value="time-sensitive" />
+                <label className={cn(
+                  "flex items-center gap-2 rounded-xl bg-white border p-4 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all",
+                  urgency === "time-sensitive" ? "border-brass bg-brass/5" : "border-slate-200/60"
+                )}>
+                  <input
+                    className="text-brass focus:ring-brass"
+                    type="radio"
+                    checked={urgency === "time-sensitive"}
+                    onChange={() => setUrgency("time-sensitive")}
+                  />
                   Time-Sensitive (SLA 24h)
                 </label>
               </div>
@@ -267,19 +312,19 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
       )}
 
       <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-        <Button 
-          type="button" 
-          variant="secondary" 
-          disabled={step === 0} 
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={step === 0}
           onClick={() => setStep((value) => Math.max(0, value - 1))}
         >
           <ArrowLeft size={16} />
           Back
         </Button>
         {step < 2 ? (
-          <Button 
-            type="button" 
-            disabled={!canContinue} 
+          <Button
+            type="button"
+            disabled={!canContinue}
             onClick={() => setStep((value) => Math.min(2, value + 1))}
           >
             Next step
