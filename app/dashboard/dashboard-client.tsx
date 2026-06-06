@@ -406,7 +406,7 @@ export function DashboardClient({
             </div>
             <div className="space-y-4">
               {selectedDayAppointments && selectedDayAppointments.length > 0 ? (
-                selectedDayAppointments.map((ticket) => (
+                selectedDayAppointments.map((ticket: any) => (
                   <article key={ticket.id} className="glass rounded-2xl p-6 border border-slate-100/60 shadow-sm space-y-5 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-brass" />
                     

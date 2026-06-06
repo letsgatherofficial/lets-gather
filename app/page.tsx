@@ -119,18 +119,11 @@ export default async function LandingPage() {
       <nav className="sticky top-0 z-50 border-b border-slate-100/80 bg-white/80 backdrop-blur-xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brass/10 text-brass">
-              <Sparkles size={18} />
-            </div>
             <span className="text-sm font-extrabold tracking-tight text-slate-800">
               Gather
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <ButtonLink href="/calendar" variant="ghost" className="h-9 px-4 text-xs">
-              <CalendarDays size={14} />
-              Public Calendar
-            </ButtonLink>
             {user ? (
               <ButtonLink href="/dashboard" variant="primary" className="h-9 px-4 text-xs">
                 Dashboard
@@ -173,10 +166,6 @@ export default async function LandingPage() {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <ButtonLink href="/calendar" className="gap-2 px-6 py-3 text-sm">
-              <CalendarDays size={16} />
-              View Public Calendar &amp; Book
-            </ButtonLink>
             {!user && (
               <ButtonLink href="/signup" variant="secondary" className="gap-2 px-6 py-3 text-sm">
                 Set Up Your Platform
@@ -255,7 +244,7 @@ export default async function LandingPage() {
       {events.length > 0 && (
         <section className="px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-5xl">
-            <div className="mb-10 flex items-end justify-between gap-4">
+            <div className="mb-10">
               <div>
                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-800">
                   Upcoming Community Events
@@ -264,10 +253,6 @@ export default async function LandingPage() {
                   Open gatherings you can attend without an appointment.
                 </p>
               </div>
-              <ButtonLink href="/calendar" variant="ghost" className="h-9 px-4 text-xs shrink-0">
-                Full Calendar
-                <ArrowRight size={13} />
-              </ButtonLink>
             </div>
 
             <div className="grid gap-5 sm:grid-cols-3">
