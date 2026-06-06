@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Leader Firewall",
+  title: "Gather",
   description: "Guest-first triage, scheduling, and delegate load balancing for high-demand leaders."
 };
 

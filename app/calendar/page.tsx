@@ -10,6 +10,7 @@ async function getCalendarSlots() {
     .from("curated_slots")
     .select("*")
     .eq("is_active", true)
+    .eq("visibility", "public_event")
     .gte("end_time", new Date().toISOString())
     .order("start_time", { ascending: true });
 

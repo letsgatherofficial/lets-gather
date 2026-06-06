@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { DashboardClient } from "./dashboard-client";
+import { RealtimeChannel } from "@/components/realtime-channel";
 
 async function getDashboardData() {
   const supabase = await createSupabaseServerClient();
@@ -138,15 +139,18 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DashboardClient
-      profile={data.profile}
-      settings={data.settings ?? null}
-      delegates={data.delegates ?? []}
-      leaders={data.leaders ?? []}
-      slots={data.slots ?? []}
-      appointments={data.appointments ?? []}
-      followerAppointments={data.followerAppointments ?? []}
-      organization={data.organization ?? null}
-    />
+    <>
+      <RealtimeChannel table="appointments" />
+      <DashboardClient
+        profile={data.profile}
+        settings={data.settings ?? null}
+        delegates={data.delegates ?? []}
+        leaders={data.leaders ?? []}
+        slots={data.slots ?? []}
+        appointments={data.appointments ?? []}
+        followerAppointments={data.followerAppointments ?? []}
+        organization={data.organization ?? null}
+      />
+    </>
   );
 }

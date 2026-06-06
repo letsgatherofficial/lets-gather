@@ -11,8 +11,6 @@ export type IntakeState = {
   message?: string;
 };
 
-const categories = new Set(["Crisis", "Legal/Admin", "Guidance", "Counseling"]);
-const windows = new Set(["Morning", "Afternoon", "Evening"]);
 
 function textValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -186,16 +184,13 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
   const fullName = textValue(formData, "fullName");
   const phone = textValue(formData, "phone");
   const email = textValue(formData, "email");
-  const category = textValue(formData, "category");
   const statement = textValue(formData, "statement");
   const outcome = textValue(formData, "outcome");
   const slotIdRaw = textValue(formData, "slotId");
   const slotId = slotIdRaw && slotIdRaw !== "null" ? slotIdRaw : null;
-  const preferredWindows = formData.getAll("preferredWindows").filter((value): value is string => typeof value === "string" && windows.has(value));
-  const isTimeSensitive = formData.get("urgency") === "time-sensitive";
 
-  if (!fullName || !phone || !categories.has(category)) {
-    return { ok: false, message: "Please provide contact details and a supported request category." };
+  if (!fullName || !phone) {
+    return { ok: false, message: "Please provide contact details." };
   }
 
   let organizationId: string | null = null;
@@ -221,9 +216,6 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
     return { ok: false, message: "The seriousness filters need more detail before this can be submitted." };
   }
 
-  if (preferredWindows.length === 0) {
-    return { ok: false, message: "Select at least one preferred time window." };
-  }
 
   const { data: reference, error: refError } = await supabase.rpc("generate_tracking_reference");
   if (refError || !reference) {
@@ -231,7 +223,7 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
   }
 
   const { data: agentId } = await supabase.rpc("assign_next_agent", {
-    p_is_time_sensitive: isTimeSensitive,
+    p_is_time_sensitive: false,
     p_organization_id: organizationId
   });
   const status = agentId ? "assigned_to_delegate" : "pending_review";
@@ -250,11 +242,11 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
     slot_id: slotId,
     assigned_agent_id: agentId,
     organization_id: organizationId,
-    category,
+    category: "Guidance",
     statement_of_business: statement,
     desired_outcome: outcome,
-    preferred_windows: preferredWindows,
-    is_time_sensitive: isTimeSensitive,
+    preferred_windows: [],
+    is_time_sensitive: false,
     status,
     sla_expires_at: agentId ? slaDate : null
   });

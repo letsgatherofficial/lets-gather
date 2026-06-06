@@ -15,6 +15,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
 import { cn, formatDateTime } from "@/lib/utils";
 import { CalendarView } from "@/components/calendar-view";
+import { RealtimeChannel } from "@/components/realtime-channel";
 
 interface DashboardClientProps {
   profile: any;
@@ -79,7 +80,7 @@ export function DashboardClient({
           <Shield size={20} />
         </div>
         <div>
-          <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">Leader Firewall Platform</h1>
+          <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">Gather Platform</h1>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
             Logged in as <span className="font-bold text-slate-700">{profile.full_name}</span> ({profile.role.toUpperCase()})
           </p>
@@ -339,6 +340,28 @@ export function DashboardClient({
 
   // Render leader view
   if (profile.role === "leader") {
+    // Group appointments by day
+    const appointmentsByDay = appointments.reduce((acc, ticket) => {
+      if (ticket.curated_slots) {
+        const date = new Date(ticket.curated_slots.start_time).toDateString();
+        if (!acc[date]) acc[date] = [];
+        acc[date].push(ticket);
+      }
+      return acc;
+    }, {} as Record<string, typeof appointments>);
+
+    const uniqueDays = Object.keys(appointmentsByDay).sort((a, b) => 
+      new Date(a).getTime() - new Date(b).getTime()
+    );
+
+    // Set default selected day to today or the first available day
+    const today = new Date().toDateString();
+    const [selectedDay, setSelectedDay] = useState(
+      uniqueDays.includes(today) ? today : uniqueDays[0] || ""
+    );
+
+    const selectedDayAppointments = selectedDay ? appointmentsByDay[selectedDay] || [] : [];
+
     return (
       <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-6">
         {headerNode}
@@ -348,46 +371,65 @@ export function DashboardClient({
         <div className="grid gap-6 md:grid-cols-3">
           {/* Daily Schedule Observer */}
           <div className="md:col-span-2 space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <UserCheck className="text-brass" size={20} />
-              <h2 className="text-lg font-bold text-slate-800">Your Scheduled Meetings Agenda</h2>
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <UserCheck className="text-brass" size={20} />
+                <h2 className="text-lg font-bold text-slate-800">Your Scheduled Meetings Agenda</h2>
+              </div>
+              {uniqueDays.length > 0 && (
+                <select
+                  value={selectedDay}
+                  onChange={(e) => setSelectedDay(e.target.value)}
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm focus:border-brass/30 focus:outline-none"
+                >
+                  {uniqueDays.map((day) => (
+                    <option key={day} value={day}>
+                      {new Date(day).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div className="space-y-4">
-              {appointments.length ? (
-                appointments.map((ticket) => (
-                  <article key={ticket.id} className="glass rounded-2xl p-5 border border-slate-100/60 shadow-sm space-y-4 relative overflow-hidden">
+              {selectedDayAppointments && selectedDayAppointments.length > 0 ? (
+                selectedDayAppointments.map((ticket) => (
+                  <article key={ticket.id} className="glass rounded-2xl p-6 border border-slate-100/60 shadow-sm space-y-5 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1.5 h-full bg-brass" />
                     
-                    <div className="flex justify-between items-start flex-wrap gap-2">
-                      <div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                    <div className="flex justify-between items-start flex-wrap gap-3">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block mb-1">
                           Scheduled Booking ({ticket.tracking_reference})
                         </span>
-                        <h3 className="text-base font-bold text-slate-800 mt-0.5">{ticket.guest_full_name}</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{ticket.guest_full_name}</h3>
                       </div>
                       {ticket.curated_slots && (
-                        <div className="text-right text-xs">
-                          <span className="font-bold text-brass">{ticket.curated_slots.title}</span>
-                          <p className="text-slate-400 font-semibold mt-0.5">{formatDateTime(ticket.curated_slots.start_time)}</p>
+                        <div className="text-right flex-shrink-0">
+                          <span className="font-bold text-brass text-sm block">{ticket.curated_slots.title}</span>
+                          <p className="text-slate-400 font-semibold text-xs mt-1">{formatDateTime(ticket.curated_slots.start_time)}</p>
                         </div>
                       )}
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 bg-slate-50/50 rounded-xl p-3.5 border border-slate-100">
-                      <div>
+                    <div className="grid gap-4 sm:grid-cols-2 bg-slate-50/50 rounded-xl p-4 border border-slate-100">
+                      <div className="space-y-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Statement of Business</p>
-                        <p className="text-xs text-slate-600 leading-relaxed mt-1">{ticket.statement_of_business}</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{ticket.statement_of_business}</p>
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Desired Outcome</p>
-                        <p className="text-xs text-slate-600 leading-relaxed mt-1">{ticket.desired_outcome}</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{ticket.desired_outcome}</p>
                       </div>
                     </div>
                   </article>
                 ))
               ) : (
                 <div className="glass rounded-2xl p-8 text-center border border-slate-100/60">
-                  <p className="text-slate-400 text-sm">No upcoming appointments scheduled on your agenda.</p>
+                  <p className="text-slate-400 text-sm">
+                    {uniqueDays.length === 0 
+                      ? "No upcoming appointments scheduled on your agenda." 
+                      : "No appointments scheduled for this day."}
+                  </p>
                 </div>
               )}
             </div>
@@ -439,9 +481,13 @@ export function DashboardClient({
 
   // Render admin view
   if (profile.role === "admin") {
-    const hostUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const [hostUrl, setHostUrl] = useState("");
     const orgToken = organization?.invite_token ?? "";
     const leaderSchedule = appointments.filter((a) => a.status === "scheduled_leader");
+
+    useEffect(() => {
+      setHostUrl(window.location.origin);
+    }, []);
 
     return (
       <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-6">
@@ -876,8 +922,8 @@ export function DashboardClient({
                         </div>
                       )}
 
-                      {/* Triage controls (only show if not resolved) */}
-                      {ticket.status !== "resolved" && (
+                      {/* Triage controls (only show if not resolved or scheduled) */}
+                      {ticket.status !== "resolved" && ticket.status !== "scheduled_leader" && ticket.status !== "scheduled_delegate" && (
                         <div className="border-t border-slate-100 pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                           <form action={async (formData) => {
                             const slotId = formData.get("slotId") as string;

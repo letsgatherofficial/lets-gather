@@ -123,7 +123,7 @@ export default async function LandingPage() {
               <Sparkles size={18} />
             </div>
             <span className="text-sm font-extrabold tracking-tight text-slate-800">
-              Leader Firewall
+              Gather
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -169,7 +169,7 @@ export default async function LandingPage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-500 leading-relaxed">
-            Leader Firewall is a scheduling and triage platform built for leaders with massive followings. It filters noise, manages delegate capacity, and protects the leader's agenda from bottlenecks — all without making followers jump through sign-up hoops.
+            Gather is a scheduling and triage platform built for leaders with massive followings. It filters noise, manages delegate capacity, and protects the leader's agenda from bottlenecks — all without making followers jump through sign-up hoops.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
@@ -327,7 +327,7 @@ export default async function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2 text-slate-400">
             <Sparkles size={14} className="text-brass" />
-            <span className="text-xs font-bold">Leader Firewall</span>
+            <span className="text-xs font-bold">Gather</span>
             <span className="text-xs">— Appointment triage for high-demand leaders</span>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-400">

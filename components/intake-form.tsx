@@ -8,8 +8,6 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/field";
 import { cn, formatDateTime } from "@/lib/utils";
 
-const categories = ["Crisis", "Legal/Admin", "Guidance", "Counseling"];
-const windows = ["Morning", "Afternoon", "Evening"];
 const initialState: IntakeState = { ok: false };
 
 interface IntakeFormProps {
@@ -26,11 +24,8 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
   const [fullNameVal, setFullNameVal] = useState("");
   const [phoneVal, setPhoneVal] = useState("");
   const [emailVal, setEmailVal] = useState("");
-  const [categoryVal, setCategoryVal] = useState("");
   const [business, setBusiness] = useState("");
   const [outcome, setOutcome] = useState("");
-  const [preferredWindows, setPreferredWindows] = useState<string[]>([]);
-  const [urgency, setUrgency] = useState("standard");
 
   const [state, action, pending] = useActionState(submitAppointment, initialState);
 
@@ -38,15 +33,9 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
   const outcomeReady = outcome.trim().length >= 100;
   const canContinue = useMemo(() => {
     if (step === 0) return fullNameVal.trim() !== "" && phoneVal.trim() !== "";
-    if (step === 1) return categoryVal !== "" && businessReady && outcomeReady;
-    return preferredWindows.length > 0;
-  }, [step, fullNameVal, phoneVal, categoryVal, businessReady, outcomeReady, preferredWindows]);
+    return businessReady && outcomeReady;
+  }, [step, fullNameVal, phoneVal, businessReady, outcomeReady]);
 
-  const toggleWindow = (window: string) => {
-    setPreferredWindows((prev) =>
-      prev.includes(window) ? prev.filter((w) => w !== window) : [...prev, window]
-    );
-  };
 
   if (state.ok && state.reference) {
     return (
@@ -88,13 +77,8 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
       <input type="hidden" name="fullName" value={fullNameVal} />
       <input type="hidden" name="phone" value={phoneVal} />
       <input type="hidden" name="email" value={emailVal} />
-      <input type="hidden" name="category" value={categoryVal} />
       <input type="hidden" name="statement" value={business} />
       <input type="hidden" name="outcome" value={outcome} />
-      {preferredWindows.map((w) => (
-        <input key={w} type="hidden" name="preferredWindows" value={w} />
-      ))}
-      <input type="hidden" name="urgency" value={urgency} />
 
       {slotDetails && (
         <div className="flex items-start gap-3.5 bg-brass/5 rounded-xl p-4 border border-brass/10 mb-2">
@@ -112,14 +96,13 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
       )}
 
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-4">
-        {["Contact", "Intake Filters", "Timeline"].map((item, index) => (
+        {["Contact", "Details"].map((item, index) => (
           <button
             type="button"
             key={item}
             onClick={() => {
               if (index === 0) setStep(0);
               if (index === 1 && fullNameVal && phoneVal) setStep(1);
-              if (index === 2 && fullNameVal && phoneVal && categoryVal && businessReady && outcomeReady) setStep(2);
             }}
             className={cn(
               "py-2 px-1 flex-1 text-center border-b-2 text-xs font-bold transition-all duration-200",
@@ -179,34 +162,12 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
 
         {step === 1 && (
           <motion.section
-            key="filters"
+            key="details"
             initial={{ opacity: 0, x: 10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
             className="space-y-5"
           >
-            <div className="space-y-2.5">
-              <Label>Category</Label>
-              <div className="grid grid-cols-2 gap-2.5">
-                {categories.map((category) => (
-                  <label
-                    key={category}
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl bg-white border p-3.5 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 focus-within:ring-2 focus-within:ring-brass/20 transition-all",
-                      categoryVal === category ? "border-brass bg-brass/5" : "border-slate-200/60"
-                    )}
-                  >
-                    <input
-                      className="text-brass focus:ring-brass"
-                      type="radio"
-                      checked={categoryVal === category}
-                      onChange={() => setCategoryVal(category)}
-                    />
-                    {category}
-                  </label>
-                ))}
-              </div>
-            </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="statement">Statement of business</Label>
@@ -242,67 +203,6 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
           </motion.section>
         )}
 
-        {step === 2 && (
-          <motion.section
-            key="timeline"
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            className="space-y-5"
-          >
-            <div className="space-y-2">
-              <Label>Preferred windows</Label>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {windows.map((window) => (
-                  <label
-                    key={window}
-                    className={cn(
-                      "flex items-center gap-2 rounded-xl bg-white border p-3.5 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all",
-                      preferredWindows.includes(window) ? "border-brass bg-brass/5" : "border-slate-200/60"
-                    )}
-                  >
-                    <input
-                      className="text-brass focus:ring-brass rounded"
-                      type="checkbox"
-                      checked={preferredWindows.includes(window)}
-                      onChange={() => toggleWindow(window)}
-                    />
-                    {window}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Urgency Level</Label>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                <label className={cn(
-                  "flex items-center gap-2 rounded-xl bg-white border p-4 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all",
-                  urgency === "standard" ? "border-brass bg-brass/5" : "border-slate-200/60"
-                )}>
-                  <input
-                    className="text-brass focus:ring-brass"
-                    type="radio"
-                    checked={urgency === "standard"}
-                    onChange={() => setUrgency("standard")}
-                  />
-                  Standard Triage
-                </label>
-                <label className={cn(
-                  "flex items-center gap-2 rounded-xl bg-white border p-4 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:border-brass/20 transition-all",
-                  urgency === "time-sensitive" ? "border-brass bg-brass/5" : "border-slate-200/60"
-                )}>
-                  <input
-                    className="text-brass focus:ring-brass"
-                    type="radio"
-                    checked={urgency === "time-sensitive"}
-                    onChange={() => setUrgency("time-sensitive")}
-                  />
-                  Time-Sensitive (SLA 24h)
-                </label>
-              </div>
-            </div>
-          </motion.section>
-        )}
       </AnimatePresence>
 
       {state.message && (
@@ -321,11 +221,11 @@ export function IntakeForm({ slotId, slotDetails }: IntakeFormProps) {
           <ArrowLeft size={16} />
           Back
         </Button>
-        {step < 2 ? (
+        {step < 1 ? (
           <Button
             type="button"
             disabled={!canContinue}
-            onClick={() => setStep((value) => Math.min(2, value + 1))}
+            onClick={() => setStep((value) => Math.min(1, value + 1))}
           >
             Next step
             <ArrowRight size={16} />
