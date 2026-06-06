@@ -1,24 +1,9 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "framework": "nextjs",
   "regions": ["iad1"],
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": {
-      "description": "Your Supabase project URL"
-    },
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": {
-      "description": "Your Supabase anonymous key"
-    },
-    "SUPABASE_SERVICE_ROLE_KEY": {
-      "description": "Your Supabase service role key (server-side only)"
-    },
-    "NEXT_PUBLIC_APP_URL": {
-      "description": "Your application URL (e.g., https://your-app.vercel.app)"
-    },
-    "CRON_SECRET": {
-      "description": "A random secret for cron job security"
+  "crons": [
+    {
+      "path": "/api/cron/reset-slas",
+      "schedule": "*/10 * * * *"
     }
-  }
+  ]
 }
