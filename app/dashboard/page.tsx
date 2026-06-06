@@ -141,6 +141,8 @@ export default async function DashboardPage() {
   return (
     <>
       <RealtimeChannel table="appointments" />
+      <RealtimeChannel table="curated_slots" />
+      <RealtimeChannel table="system_settings" />
       <DashboardClient
         profile={data.profile}
         settings={data.settings ?? null}

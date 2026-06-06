@@ -40,6 +40,20 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState({ triage: 0, calendar: 0, overview: 0 });
+  const [previousAppointmentIds, setPreviousAppointmentIds] = useState<Set<string>>(new Set());
+
+  // Detect new appointments and increment triage notification
+  useEffect(() => {
+    const currentIds = new Set(appointments.map(a => a.id));
+    const newIds = [...currentIds].filter(id => !previousAppointmentIds.has(id));
+    
+    if (newIds.length > 0) {
+      setUnreadCounts(prev => ({ ...prev, triage: prev.triage + newIds.length }));
+    }
+    
+    setPreviousAppointmentIds(currentIds);
+  }, [appointments]);
 
   // Client side copy helper
   const copyToClipboard = (text: string, label: string) => {
@@ -501,12 +515,16 @@ export function DashboardClient({
             { id: "triage", label: "Triage Center", icon: Clipboard }
           ].map((tab) => {
             const Icon = tab.icon;
+            const unreadCount = unreadCounts[tab.id as keyof typeof unreadCounts];
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setUnreadCounts(prev => ({ ...prev, [tab.id]: 0 }));
+                }}
                 className={cn(
-                  "flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-all duration-200 -mb-px rounded-t-xl",
+                  "flex items-center gap-2 py-3 px-4 text-xs font-bold border-b-2 transition-all duration-200 -mb-px rounded-t-xl relative",
                   activeTab === tab.id
                     ? "border-brass text-brass bg-brass/[0.02]"
                     : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50"
@@ -514,6 +532,9 @@ export function DashboardClient({
               >
                 <Icon size={14} />
                 {tab.label}
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+                )}
               </button>
             );
           })}

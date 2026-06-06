@@ -195,11 +195,8 @@ export async function submitAppointment(_: IntakeState, formData: FormData): Pro
 
   let organizationId: string | null = null;
   if (slotId) {
-    const { data: slot } = await supabase.from("curated_slots").select("organization_id, current_occupancy, max_capacity").eq("id", slotId).single();
+    const { data: slot } = await supabase.from("curated_slots").select("organization_id").eq("id", slotId).single();
     if (slot) {
-      if (slot.current_occupancy >= slot.max_capacity) {
-        return { ok: false, message: "The selected appointment slot is already full." };
-      }
       organizationId = slot.organization_id;
     }
   }
@@ -435,6 +432,26 @@ export async function scheduleAppointmentAction(appointmentId: string, slotId: s
   }
   if (slot.current_occupancy >= slot.max_capacity) {
     return { ok: false, message: "This slot is already full." };
+  }
+
+  // Increment occupancy when approving
+  const newOccupancy = slot.current_occupancy + 1;
+  const { error: updateError } = await adminClient
+    .from("curated_slots")
+    .update({ current_occupancy: newOccupancy })
+    .eq("id", slotId);
+
+  if (updateError) {
+    return { ok: false, message: updateError.message };
+  }
+
+  // Auto-erase pending bookings after limit is reached
+  if (newOccupancy >= slot.max_capacity) {
+    await adminClient
+      .from("appointments")
+      .update({ status: "resolved" })
+      .eq("slot_id", slotId)
+      .in("status", ["pending_review", "assigned_to_delegate"]);
   }
 
   const { error } = await adminClient

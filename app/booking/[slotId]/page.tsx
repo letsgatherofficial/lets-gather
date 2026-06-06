@@ -51,7 +51,7 @@ export default async function BookingPage({ params }: PageProps) {
           <div className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border
             ${isFull ? "bg-rose-50 text-rose-500 border-rose-100" : "bg-jade/5 text-jade border-jade/10"}`}>
             <Users size={12} />
-            {slot.current_occupancy} / {slot.max_capacity} filled
+            {isFull ? "Fully booked" : "Limited slots available"}
           </div>
         </div>
 
