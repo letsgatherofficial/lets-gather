@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/reset-slas",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
