@@ -16,6 +16,7 @@ import { Input, Label } from "@/components/ui/field";
 import { cn, formatDateTime } from "@/lib/utils";
 import { CalendarView } from "@/components/calendar-view";
 import { RealtimeChannel } from "@/components/realtime-channel";
+import { ShareCalendarLink } from "@/components/share-calendar-link";
 
 interface DashboardClientProps {
   profile: any;
@@ -42,6 +43,11 @@ export function DashboardClient({
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [unreadCounts, setUnreadCounts] = useState({ triage: 0, calendar: 0, overview: 0 });
   const [previousAppointmentIds, setPreviousAppointmentIds] = useState<Set<string>>(new Set());
+  const [calendarUrl, setCalendarUrl] = useState("");
+
+  useEffect(() => {
+    setCalendarUrl(`${window.location.origin}/calendar?org=${organization?.invite_token || ""}`);
+  }, [organization]);
 
   // Detect new appointments and increment triage notification
   useEffect(() => {
@@ -757,6 +763,11 @@ export function DashboardClient({
           {activeTab === "calendar" && (
             <div className="space-y-8">
             <CalendarView slots={slots} showBookingLinks={true} />
+
+            {/* Master Calendar Link */}
+            {organization && calendarUrl && (
+              <ShareCalendarLink calendarUrl={calendarUrl} />
+            )}
 
             <div className="grid gap-6 md:grid-cols-3">
               {/* Slot creation form */}
