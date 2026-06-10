@@ -49,9 +49,10 @@ async function getSessionUser() {
 export default async function PublicCalendarPage({
   searchParams,
 }: {
-  searchParams: { org?: string };
+  searchParams: Promise<{ org?: string }>;
 }) {
-  const orgToken = searchParams.org;
+  const params = await searchParams;
+  const orgToken = params.org;
   const slots = await getCalendarSlots(orgToken);
   const user = await getSessionUser();
 
